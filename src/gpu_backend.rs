@@ -1,0 +1,1 @@
+pub fn init_vulkan() { println!("Vulkan initialized"); }
