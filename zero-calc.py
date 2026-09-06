@@ -35,7 +35,6 @@ class ZeroCalcEvaluator(ast.NodeVisitor):
         }
 
     def eval(self, expr):
-        # Handle assignments (e.g. x = 10)
         if '=' in expr and '==' not in expr:
             var_name, val_expr = expr.split('=', 1)
             var_name = var_name.strip()
@@ -45,7 +44,6 @@ class ZeroCalcEvaluator(ast.NodeVisitor):
             self.variables[var_name] = val
             return val
         
-        # Parse and evaluate standard math expressions safely
         node = ast.parse(expr, mode='eval').body
         return self._eval_node(node)
 
@@ -70,29 +68,26 @@ class ZeroCalcEvaluator(ast.NodeVisitor):
                 return self.funcs[func_name](*args)
             raise ValueError(f"Unknown function: {func_name}")
         else:
-            raise TypeError(f"Unsupported operation or syntax error.")
+            raise TypeError("Unsupported operation or syntax error.")
 
 def main():
-    print("[1;36m" + "="*50 + "[0m")
-    print("[1;36m          ZERO-CALC: ARBITRARY PRECISION ENGINE[0m")
-    print("[1;36m" + "="*50 + "[0m")
-    print("[3mType 'help' for commands, 'exit' to quit.[0m
-")
+    print("\033[1;36m" + "="*50 + "\033[0m")
+    print("\033[1;36m          ZERO-CALC: ARBITRARY PRECISION ENGINE\033[0m")
+    print("\033[1;36m" + "="*50 + "\033[0m")
+    print("\033[3mType 'help' for commands, 'exit' to quit.\033[0m\n")
     
     evaluator = ZeroCalcEvaluator()
     
     while True:
         try:
-            # Try to use readline for history if available
             import readline
         except ImportError:
             pass
             
         try:
-            expr = input("[1;32mzero-calc > [0m").strip()
+            expr = input("\033[1;32mzero-calc > \033[0m").strip()
         except (EOFError, KeyboardInterrupt):
-            print("
-Exiting...")
+            print("\nExiting...")
             sys.exit(0)
             
         if not expr:
@@ -100,13 +95,11 @@ Exiting...")
         if expr.lower() in ('exit', 'quit'):
             break
         if expr.lower() == 'help':
-            print("
-  [1;33mCommands:[0m")
-            print("  Variables: [36mmass = 55.5[0m (assign variables easily)")
-            print("  Functions: [36msin(x), cos(x), sqrt(x), abs(x), log(x)[0m")
-            print("  Math Ops:  [36m+, -, *, /, ^ (power)[0m")
-            print("  Precision: [32mArbitrary (Calculates up to 100 decimal places)[0m
-")
+            print("\n  \033[1;33mCommands:\033[0m")
+            print("  Variables: \033[36mmass = 55.5\033[0m (assign variables easily)")
+            print("  Functions: \033[36msin(x), cos(x), sqrt(x), abs(x), log(x)\033[0m")
+            print("  Math Ops:  \033[36m+, -, *, /, ^ (power)\033[0m")
+            print("  Precision: \033[32mArbitrary (Calculates up to 100 decimal places)\033[0m\n")
             continue
             
         try:
@@ -114,11 +107,9 @@ Exiting...")
             res_str = f"{result:f}"
             if '.' in res_str:
                 res_str = res_str.rstrip('0').rstrip('.')
-            print(f"[1;33m[Result]: {res_str}[0m
-")
+            print(f"\033[1;33m[Result]: {res_str}\033[0m\n")
         except Exception as e:
-            print(f"[1;31m[Error]: {str(e)}[0m
-")
+            print(f"\033[1;31m[Error]: {str(e)}\033[0m\n")
 
 if __name__ == '__main__':
     main()
