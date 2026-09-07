@@ -1,68 +1,87 @@
 import customtkinter as ctk
-import threading
-import time
-import random
-import sys
-import os
+import math
 
 ctk.set_appearance_mode("dark")
 ctk.set_default_color_theme("blue")
 
-class AppGUI(ctk.CTk):
+class ZeroCalc(ctk.CTk):
     def __init__(self):
         super().__init__()
-        script_name = os.path.basename(__file__)
-        self.app_name = script_name.replace('_gui.py', '').replace('zero_', '').upper()
+        self.title("Zero Calc - V8 Native GUI")
+        self.geometry("350x500")
         
-        self.title(f"Zero {self.app_name} - V8 Enterprise Engine")
-        self.geometry("750x550")
+        self.result_var = ctk.StringVar(value="0")
         
-        # Header
-        self.lbl = ctk.CTkLabel(self, text=f"ZERO {self.app_name} ENGINE", font=("Courier", 24, "bold"), text_color="#A6E3A1")
-        self.lbl.pack(pady=20)
+        # Display
+        display = ctk.CTkEntry(self, textvariable=self.result_var, font=("Arial", 36), justify="right", state="readonly")
+        display.pack(fill=ctk.BOTH, ipadx=8, ipady=20, pady=20, padx=20)
         
-        # Console
-        self.console = ctk.CTkTextbox(self, font=("Courier", 12), text_color="#CBA6F7", fg_color="#11111B")
-        self.console.pack(fill=ctk.BOTH, expand=True, padx=20, pady=10)
-        self.console.configure(state="disabled")
+        # Buttons Frame
+        buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
+        buttons_frame.pack(fill=ctk.BOTH, expand=True, padx=20, pady=(0, 20))
         
-        # Control Panel
-        self.btn_frame = ctk.CTkFrame(self, fg_color="transparent")
-        self.btn_frame.pack(pady=20)
+        buttons = [
+            ('7', '8', '9', '/'),
+            ('4', '5', '6', '*'),
+            ('1', '2', '3', '-'),
+            ('C', '0', '=', '+')
+        ]
         
-        self.btn = ctk.CTkButton(self.btn_frame, text="INITIALIZE ENGINE", font=("Courier", 14, "bold"), 
-                                 command=self.start_engine, fg_color="#89B4FA", hover_color="#B4BEFE", text_color="#11111B")
-        self.btn.grid(row=0, column=0, padx=10)
-        
-        self.btn_clear = ctk.CTkButton(self.btn_frame, text="CLEAR BUFFER", font=("Courier", 14, "bold"), 
-                                       command=self.clear_console, fg_color="#F38BA8", hover_color="#F9E2AF", text_color="#11111B")
-        self.btn_clear.grid(row=0, column=1, padx=10)
-        
-    def log(self, text):
-        self.console.configure(state="normal")
-        self.console.insert("end", text + "\n")
-        self.console.see("end")
-        self.console.configure(state="disabled")
-        
-    def clear_console(self):
-        self.console.configure(state="normal")
-        self.console.delete("0.0", "end")
-        self.console.configure(state="disabled")
+        for row_idx, row in enumerate(buttons):
+            buttons_frame.rowconfigure(row_idx, weight=1)
+            for col_idx, text in enumerate(row):
+                buttons_frame.columnconfigure(col_idx, weight=1)
+                
+                fg_color = "#4C566A"
+                hover_color = "#5E81AC"
+                if text in ['/', '*', '-', '+']:
+                    fg_color = "#5E81AC"
+                    hover_color = "#81A1C1"
+                elif text == 'C':
+                    fg_color = "#BF616A"
+                    hover_color = "#D08770"
+                elif text == '=':
+                    fg_color = "#A3BE8C"
+                    hover_color = "#8FBCBB"
+                    
+                btn = ctk.CTkButton(buttons_frame, text=text, font=("Arial", 20, "bold"),
+                                    command=lambda t=text: self.on_button(t),
+                                    fg_color=fg_color, hover_color=hover_color, corner_radius=8)
+                if text == '=':
+                    btn.configure(text_color="#2E3440")
+                
+                btn.grid(row=row_idx, column=col_idx, sticky="nsew", padx=4, pady=4)
 
-    def start_engine(self):
-        self.log(f"[V8] Booting {self.app_name} CustomTkinter Engine...")
-        threading.Thread(target=self.engine_loop, daemon=True).start()
-        
-    def engine_loop(self):
-        time.sleep(0.5)
-        self.log(f"[{self.app_name}] Establishing secure kernel space...")
-        time.sleep(1)
-        for i in range(1, 40):
-            time.sleep(random.uniform(0.05, 0.3))
-            hex_val = f"{random.randint(0, 0xFFFFFFFF):08X}"
-            self.log(f"[{self.app_name}] Epoch {i:04d} | Vector Address: 0x{hex_val} | Delta: {random.random():.6f}")
-        self.log(f"\n[V8] {self.app_name} Engine sequence completed successfully.")
+        # Bindings
+        self.bind('<Key>', self.key_pressed)
+        self.bind('<Return>', lambda e: self.on_button('='))
+        self.bind('<BackSpace>', lambda e: self.on_button('C'))
+
+    def key_pressed(self, event):
+        char = event.char
+        if char in '0123456789+-*/.':
+            self.on_button(char)
+        elif char.lower() == 'c':
+            self.on_button('C')
+        elif char == '=':
+            self.on_button('=')
+
+    def on_button(self, char):
+        current = self.result_var.get()
+        if char == 'C':
+            self.result_var.set("0")
+        elif char == '=':
+            try:
+                res = eval(current, {"__builtins__": None, "math": math})
+                self.result_var.set(str(res))
+            except Exception:
+                self.result_var.set("Error")
+        else:
+            if current == "0" or current == "Error":
+                self.result_var.set(char)
+            else:
+                self.result_var.set(current + char)
 
 if __name__ == "__main__":
-    app = AppGUI()
+    app = ZeroCalc()
     app.mainloop()
