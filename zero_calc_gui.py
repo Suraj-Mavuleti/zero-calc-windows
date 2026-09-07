@@ -1,13 +1,68 @@
 import customtkinter as ctk
 import math
+import os
+import threading
+import mss
+from PIL import Image
+from google import genai
 
 ctk.set_appearance_mode("dark")
+
+API_KEY_FILE = os.path.expanduser("~/.gemini/antigravity/scratch/zero_calc_key.txt")
+
+class SnippingTool(ctk.CTkToplevel):
+    def __init__(self, parent, callback):
+        super().__init__(parent)
+        self.callback = callback
+        
+        # Transparent overlay
+        self.attributes('-fullscreen', True)
+        self.attributes('-alpha', 0.25)
+        self.config(cursor="crosshair")
+        
+        self.canvas = ctk.CTkCanvas(self, cursor="crosshair", bg="gray11")
+        self.canvas.pack(fill="both", expand=True)
+        
+        self.start_x = None
+        self.start_y = None
+        self.rect = None
+        
+        self.canvas.bind("<ButtonPress-1>", self.on_press)
+        self.canvas.bind("<B1-Motion>", self.on_drag)
+        self.canvas.bind("<ButtonRelease-1>", self.on_release)
+        
+    def on_press(self, event):
+        self.start_x = event.x
+        self.start_y = event.y
+        self.rect = self.canvas.create_rectangle(self.start_x, self.start_y, self.start_x, self.start_y, outline='#00C7FF', width=3, fill='white')
+        
+    def on_drag(self, event):
+        self.canvas.coords(self.rect, self.start_x, self.start_y, event.x, event.y)
+        
+    def on_release(self, event):
+        x1 = min(self.start_x, event.x)
+        y1 = min(self.start_y, event.y)
+        x2 = max(self.start_x, event.x)
+        y2 = max(self.start_y, event.y)
+        
+        self.destroy()
+        
+        # Prevent 0-width grabs
+        if x2 - x1 < 5 or y2 - y1 < 5:
+            self.callback(None)
+            return
+            
+        with mss.mss() as sct:
+            monitor = {"top": y1, "left": x1, "width": x2 - x1, "height": y2 - y1}
+            sct_img = sct.grab(monitor)
+            img = Image.frombytes("RGB", sct_img.size, sct_img.bgra, "raw", "BGRX")
+            self.callback(img)
 
 class ZeroCalc(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Zero Scientific - God Tier Edition")
-        self.geometry("680x550")
+        self.title("Zero Scientific - Multimodal AI Edition")
+        self.geometry("680x620")
         self.configure(fg_color="#1C1C1E") 
         
         self.result_var = ctk.StringVar(value="0")
@@ -20,6 +75,10 @@ class ZeroCalc(ctk.CTk):
                                state="readonly", fg_color="transparent", border_width=0, 
                                text_color="#FFFFFF")
         display.pack(fill=ctk.BOTH, expand=True)
+        
+        ai_btn = ctk.CTkButton(self, text="📷 SNIP & SOLVE (Gemini AI Vision)", font=("Helvetica Neue", 16, "bold"),
+                               command=self.on_ai_solve, fg_color="#5E5CE6", hover_color="#5A54D8", corner_radius=12)
+        ai_btn.pack(fill=ctk.X, padx=20, pady=(0, 15))
         
         buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
         buttons_frame.pack(fill=ctk.BOTH, expand=True, padx=15, pady=(0, 20))
@@ -83,6 +142,49 @@ class ZeroCalc(ctk.CTk):
         self.bind('<Return>', lambda e: self.on_button('='))
         self.bind('<BackSpace>', lambda e: self.on_button('DEL'))
 
+    def on_ai_solve(self):
+        if os.path.exists(API_KEY_FILE):
+            with open(API_KEY_FILE, "r") as f:
+                self.api_key = f.read().strip()
+        else:
+            dialog = ctk.CTkInputDialog(text="To use Multimodal Vision, enter your Gemini API Key:", title="AI Configuration")
+            self.api_key = dialog.get_input()
+            if self.api_key:
+                os.makedirs(os.path.dirname(API_KEY_FILE), exist_ok=True)
+                with open(API_KEY_FILE, "w") as f:
+                    f.write(self.api_key)
+            else:
+                return
+
+        self.withdraw()
+        self.after(250, self.start_snipper)
+        
+    def start_snipper(self):
+        SnippingTool(self, self.process_ai_image)
+
+    def process_ai_image(self, img):
+        self.deiconify()
+        if img is None:
+            return
+            
+        self.result_var.set("Analyzing Snippet...")
+        
+        def run_ai():
+            try:
+                client = genai.Client(api_key=self.api_key)
+                prompt = "You are an expert mathematical AI. Solve the equation, matrix, integral, derivative, or math problem in this image. Output ONLY the final resulting number, matrix, or expression, so it can be displayed cleanly on a calculator screen. Keep it as short as possible. Do not provide explanations or steps."
+                
+                response = client.models.generate_content(
+                    model='gemini-2.5-flash',
+                    contents=[img, prompt]
+                )
+                self.result_var.set(response.text.strip())
+            except Exception as e:
+                self.result_var.set("AI Vision Error")
+                print("Gemini API Error:", e)
+                
+        threading.Thread(target=run_ai, daemon=True).start()
+
     def key_pressed(self, event):
         char = event.char
         if char in '0123456789+-*/.^()':
@@ -98,7 +200,9 @@ class ZeroCalc(ctk.CTk):
         if char == 'C':
             self.result_var.set("0")
         elif char == 'DEL':
-            if current == "Error" or len(current) == 1:
+            if current == "Error" or current == "Analyzing Snippet..." or current == "AI Vision Error":
+                self.result_var.set("0")
+            elif len(current) == 1:
                 self.result_var.set("0")
             else:
                 self.result_var.set(current[:-1])
@@ -106,7 +210,6 @@ class ZeroCalc(ctk.CTk):
             try:
                 eval_str = current.replace('^', '**')
                 
-                # Math degree wrappers
                 def d_sin(x): return math.sin(math.radians(x))
                 def d_cos(x): return math.cos(math.radians(x))
                 def d_tan(x): return math.tan(math.radians(x))
@@ -124,7 +227,6 @@ class ZeroCalc(ctk.CTk):
                 }
                 res = eval(eval_str, safe_dict)
                 
-                # Clean up floating point errors
                 if isinstance(res, float):
                     res = round(res, 10)
                     if res.is_integer():
@@ -138,7 +240,7 @@ class ZeroCalc(ctk.CTk):
             if char in ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh', 'ln', 'log', 'sqrt', 'fact']:
                 append_val = char + '('
                 
-            if current == "0" or current == "Error":
+            if current == "0" or current == "Error" or current == "Analyzing Snippet..." or current == "AI Vision Error":
                 self.result_var.set(append_val)
             else:
                 self.result_var.set(current + append_val)
