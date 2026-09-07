@@ -1,21 +1,16 @@
 import customtkinter as ctk
 import math
-import os
 import threading
 import mss
 from PIL import Image
-from google import genai
 
 ctk.set_appearance_mode("dark")
-
-API_KEY_FILE = os.path.expanduser("~/.gemini/antigravity/scratch/zero_calc_key.txt")
 
 class SnippingTool(ctk.CTkToplevel):
     def __init__(self, parent, callback):
         super().__init__(parent)
         self.callback = callback
         
-        # Transparent overlay
         self.attributes('-fullscreen', True)
         self.attributes('-alpha', 0.25)
         self.config(cursor="crosshair")
@@ -47,7 +42,6 @@ class SnippingTool(ctk.CTkToplevel):
         
         self.destroy()
         
-        # Prevent 0-width grabs
         if x2 - x1 < 5 or y2 - y1 < 5:
             self.callback(None)
             return
@@ -61,7 +55,7 @@ class SnippingTool(ctk.CTkToplevel):
 class ZeroCalc(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Zero Scientific - Multimodal AI Edition")
+        self.title("Zero Scientific - Local Offline Edition")
         self.geometry("680x620")
         self.configure(fg_color="#1C1C1E") 
         
@@ -76,7 +70,7 @@ class ZeroCalc(ctk.CTk):
                                text_color="#FFFFFF")
         display.pack(fill=ctk.BOTH, expand=True)
         
-        ai_btn = ctk.CTkButton(self, text="📷 SNIP & SOLVE (Gemini AI Vision)", font=("Helvetica Neue", 16, "bold"),
+        ai_btn = ctk.CTkButton(self, text="📷 SNIP & SOLVE", font=("Helvetica Neue", 16, "bold"),
                                command=self.on_ai_solve, fg_color="#5E5CE6", hover_color="#5A54D8", corner_radius=12)
         ai_btn.pack(fill=ctk.X, padx=20, pady=(0, 15))
         
@@ -116,7 +110,7 @@ class ZeroCalc(ctk.CTk):
                     hover_color = color_op_hover
                     font = ("Helvetica Neue", 22, "bold")
                 elif text == '=':
-                    fg_color = "#32D74B" # iOS Green
+                    fg_color = "#32D74B" 
                     hover_color = "#34C759"
                     font = ("Helvetica Neue", 26, "bold")
                 elif text in ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh', 'ln', 'log', 'sqrt', 'fact', 'pi', 'e', '(', ')']:
@@ -143,19 +137,6 @@ class ZeroCalc(ctk.CTk):
         self.bind('<BackSpace>', lambda e: self.on_button('DEL'))
 
     def on_ai_solve(self):
-        if os.path.exists(API_KEY_FILE):
-            with open(API_KEY_FILE, "r") as f:
-                self.api_key = f.read().strip()
-        else:
-            dialog = ctk.CTkInputDialog(text="To use Multimodal Vision, enter your Gemini API Key:", title="AI Configuration")
-            self.api_key = dialog.get_input()
-            if self.api_key:
-                os.makedirs(os.path.dirname(API_KEY_FILE), exist_ok=True)
-                with open(API_KEY_FILE, "w") as f:
-                    f.write(self.api_key)
-            else:
-                return
-
         self.withdraw()
         self.after(250, self.start_snipper)
         
@@ -167,23 +148,42 @@ class ZeroCalc(ctk.CTk):
         if img is None:
             return
             
-        self.result_var.set("Analyzing Snippet...")
+        self.result_var.set("Scanning locally...")
         
-        def run_ai():
+        def run_local_solver():
             try:
-                client = genai.Client(api_key=self.api_key)
-                prompt = "You are an expert mathematical AI. Solve the equation, matrix, integral, derivative, or math problem in this image. Output ONLY the final resulting number, matrix, or expression, so it can be displayed cleanly on a calculator screen. Keep it as short as possible. Do not provide explanations or steps."
+                import pytesseract
+                from sympy.parsing.sympy_parser import parse_expr, standard_transformations, implicit_multiplication_application
                 
-                response = client.models.generate_content(
-                    model='gemini-2.5-flash',
-                    contents=[img, prompt]
-                )
-                self.result_var.set(response.text.strip())
+                text = pytesseract.image_to_string(img, config='--psm 6').strip()
+                if not text:
+                    self.result_var.set("No math found")
+                    return
+                
+                text = text.replace('
+', '').replace('=', '').strip()
+                
+                try:
+                    transformations = standard_transformations + (implicit_multiplication_application,)
+                    expr = parse_expr(text, transformations=transformations)
+                    expr = expr.doit() 
+                    
+                    if expr.is_number:
+                        res = float(expr)
+                        if res.is_integer(): res = int(res)
+                        self.result_var.set(str(res))
+                    else:
+                        self.result_var.set(str(expr))
+                except Exception:
+                    clean_text = text.replace('x', '*').replace('X', '*').replace('^', '**')
+                    res = eval(clean_text)
+                    if isinstance(res, float) and res.is_integer(): res = int(res)
+                    self.result_var.set(str(res))
+                    
             except Exception as e:
-                self.result_var.set("AI Vision Error")
-                print("Gemini API Error:", e)
+                self.result_var.set("Parse Error")
                 
-        threading.Thread(target=run_ai, daemon=True).start()
+        threading.Thread(target=run_local_solver, daemon=True).start()
 
     def key_pressed(self, event):
         char = event.char
@@ -200,7 +200,7 @@ class ZeroCalc(ctk.CTk):
         if char == 'C':
             self.result_var.set("0")
         elif char == 'DEL':
-            if current == "Error" or current == "Analyzing Snippet..." or current == "AI Vision Error":
+            if current == "Error" or current == "Scanning locally..." or current == "Parse Error" or current == "No math found":
                 self.result_var.set("0")
             elif len(current) == 1:
                 self.result_var.set("0")
@@ -240,7 +240,7 @@ class ZeroCalc(ctk.CTk):
             if char in ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'sinh', 'cosh', 'tanh', 'ln', 'log', 'sqrt', 'fact']:
                 append_val = char + '('
                 
-            if current == "0" or current == "Error" or current == "Analyzing Snippet..." or current == "AI Vision Error":
+            if current == "0" or current == "Error" or current == "Scanning locally..." or current == "Parse Error" or current == "No math found":
                 self.result_var.set(append_val)
             else:
                 self.result_var.set(current + append_val)
