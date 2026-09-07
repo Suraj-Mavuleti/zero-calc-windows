@@ -2,21 +2,29 @@ import customtkinter as ctk
 import math
 
 ctk.set_appearance_mode("dark")
-ctk.set_default_color_theme("blue")
 
 class ZeroCalc(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Zero Scientific Calc - V8 Native GUI")
-        self.geometry("450x600")
+        self.title("Zero Scientific - Premium Edition")
+        self.geometry("400x680")
+        self.configure(fg_color="#1C1C1E") # Deep iOS-style dark background
         
         self.result_var = ctk.StringVar(value="0")
         
-        display = ctk.CTkEntry(self, textvariable=self.result_var, font=("Arial", 36), justify="right", state="readonly")
-        display.pack(fill=ctk.BOTH, ipadx=8, ipady=20, pady=20, padx=20)
+        # Display Area (Large, borderless, clean)
+        display_frame = ctk.CTkFrame(self, fg_color="transparent")
+        display_frame.pack(fill=ctk.BOTH, padx=20, pady=(40, 20))
         
+        display = ctk.CTkEntry(display_frame, textvariable=self.result_var, 
+                               font=("Helvetica Neue", 54, "bold"), justify="right", 
+                               state="readonly", fg_color="transparent", border_width=0, 
+                               text_color="#FFFFFF")
+        display.pack(fill=ctk.BOTH, expand=True)
+        
+        # Buttons Frame
         buttons_frame = ctk.CTkFrame(self, fg_color="transparent")
-        buttons_frame.pack(fill=ctk.BOTH, expand=True, padx=20, pady=(0, 20))
+        buttons_frame.pack(fill=ctk.BOTH, expand=True, padx=15, pady=(0, 20))
         
         buttons = [
             ('sin', 'cos', 'tan', 'C', 'DEL'),
@@ -26,37 +34,57 @@ class ZeroCalc(ctk.CTk):
             ('1', '2', '3', '0', '.')
         ]
         
+        # Premium iOS Colors
+        color_num = "#333333"
+        color_num_hover = "#444444"
+        color_op = "#FF9F0A" 
+        color_op_hover = "#FFB340"
+        color_sci = "#555555"
+        color_sci_hover = "#666666"
+        color_danger = "#FF453A"
+        color_danger_hover = "#FF6961"
+
         for row_idx, row in enumerate(buttons):
             buttons_frame.rowconfigure(row_idx, weight=1)
             for col_idx, text in enumerate(row):
                 buttons_frame.columnconfigure(col_idx, weight=1)
                 
-                fg_color = "#4C566A"
-                hover_color = "#5E81AC"
+                # Determine styling
+                fg_color = color_num
+                hover_color = color_num_hover
+                text_color = "#FFFFFF"
+                font = ("Helvetica Neue", 22)
+                
                 if text in ['/', '*', '-', '+', '^']:
-                    fg_color = "#5E81AC"
-                    hover_color = "#81A1C1"
+                    fg_color = color_op
+                    hover_color = color_op_hover
+                    font = ("Helvetica Neue", 26, "bold")
                 elif text in ['sin', 'cos', 'tan', 'log', 'sqrt', '(', ')']:
-                    fg_color = "#434C5E"
-                    hover_color = "#4C566A"
+                    fg_color = color_sci
+                    hover_color = color_sci_hover
+                    font = ("Helvetica Neue", 16)
                 elif text == 'C':
-                    fg_color = "#BF616A"
-                    hover_color = "#D08770"
+                    fg_color = color_danger
+                    hover_color = color_danger_hover
+                    font = ("Helvetica Neue", 18, "bold")
                 elif text == 'DEL':
-                    fg_color = "#D08770"
-                    hover_color = "#EBCB8B"
+                    fg_color = color_sci
+                    hover_color = color_sci_hover
+                    font = ("Helvetica Neue", 16, "bold")
                     
-                btn = ctk.CTkButton(buttons_frame, text=text, font=("Arial", 18, "bold"),
+                btn = ctk.CTkButton(buttons_frame, text=text, font=font, text_color=text_color,
                                     command=lambda t=text: self.on_button(t),
-                                    fg_color=fg_color, hover_color=hover_color, corner_radius=8)
-                btn.grid(row=row_idx, column=col_idx, sticky="nsew", padx=4, pady=4)
+                                    fg_color=fg_color, hover_color=hover_color, 
+                                    corner_radius=20)
+                btn.grid(row=row_idx, column=col_idx, sticky="nsew", padx=6, pady=6)
 
-        # Equal button spans across the bottom
+        # Equal button spanning bottom
         buttons_frame.rowconfigure(5, weight=1)
-        eq_btn = ctk.CTkButton(buttons_frame, text="=", font=("Arial", 24, "bold"),
+        eq_btn = ctk.CTkButton(buttons_frame, text="=", font=("Helvetica Neue", 32, "bold"),
                                command=lambda: self.on_button('='),
-                               fg_color="#A3BE8C", hover_color="#8FBCBB", text_color="#2E3440", corner_radius=8)
-        eq_btn.grid(row=5, column=0, columnspan=5, sticky="nsew", padx=4, pady=4)
+                               fg_color=color_op, hover_color=color_op_hover, text_color="#FFFFFF", 
+                               corner_radius=20)
+        eq_btn.grid(row=5, column=0, columnspan=5, sticky="nsew", padx=6, pady=6)
 
         self.bind('<Key>', self.key_pressed)
         self.bind('<Return>', lambda e: self.on_button('='))
