@@ -160,8 +160,7 @@ class ZeroCalc(ctk.CTk):
                     self.result_var.set("No math found")
                     return
                 
-                text = text.replace('
-', '').replace('=', '').strip()
+                text = text.replace('\n', '').replace('=', '').strip()
                 
                 try:
                     transformations = standard_transformations + (implicit_multiplication_application,)
